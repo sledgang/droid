@@ -1,0 +1,14 @@
+# d stuff
+.dub
+docs.json
+__dummy.html
+*.o
+*.obj
+__test__*__
+dub.selections.json
+
+# our stuff
+/out/
+/.vscode/
+/.idea/
+dscanner.ini
