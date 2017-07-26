@@ -12,3 +12,6 @@ dub.selections.json
 /.vscode/
 /.idea/
 dscanner.ini
+
+*.exe
+*.dll
