@@ -1,11 +1,11 @@
-module api.default_api;
+module droid.api.default_api;
 
 import std.json;
 
 import vibe.http.client;
 
 import droid.droidversion,
-       api.api;
+       droid.api.api;
 
 final class DefaultAPI : API
 {

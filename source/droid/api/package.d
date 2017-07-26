@@ -1,6 +1,6 @@
 module droid.api;
 
 public {
-    import api.api;
-    import api.default_api;
+    import droid.api.api;
+    import droid.api.default_api;
 }

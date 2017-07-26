@@ -1,4 +1,4 @@
-module api.api;
+module droid.api.api;
 
 import std.json;
 
