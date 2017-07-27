@@ -1,7 +1,8 @@
-module droid.gateway;
+module droid.gateway.gateway;
 
 import core.time,
-       std.functional;
+       std.functional,
+       std.conv;
 
 import vibe.core.core,
        vibe.core.log,
@@ -12,15 +13,22 @@ import vibe.core.core,
        vibe.data.json;
 
 import droid.exception,
-       droid.api;
+       droid.api,
+       droid.gateway.opcode;
+
+private struct OpcodeHandler
+{
+    Opcode opcode;
+}
 
 final class Gateway
 {
     enum GATEWAY_URL = "wss://gateway.discord.gg/?v=6&encoding=json";
 
     private alias OpcodeDelegate = void delegate(in Json);
+    private alias OpcodeHandlerMap = OpcodeDelegate[Opcode];
 
-    private immutable OpcodeDelegate[uint] OPCODE_MAPPING;
+    private immutable OpcodeHandlerMap OPCODE_MAPPING;
 
     private API api_;
     private WebSocket ws_;
@@ -30,20 +38,7 @@ final class Gateway
 
     this(API api)
     {
-        OPCODE_MAPPING = {
-            // create at runtime because toDelegate can't be used in compile-time
-            import std.exception : assumeUnique;
-
-            OpcodeDelegate[uint] bufAA;
-
-            bufAA[0]  = toDelegate(&this.opcodeDispatchHandle);
-            bufAA[10] = toDelegate(&this.opcodeHelloHandle);
-            bufAA[11] = toDelegate(&this.opcodeHeartbeatACKHandle);
-
-            bufAA.rehash;
-            return assumeUnique(bufAA);
-        }();
-
+        OPCODE_MAPPING = buildOpcodeHandlersMap();
         api_ = api;
     }
 
@@ -53,7 +48,39 @@ final class Gateway
             tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].str, true);
         }
 
-        handleEvents();
+        try {
+            runTask(&this.handleEvents);
+
+            identify();
+        } catch (Exception e) {
+            throw e;
+        }
+
+        runEventLoop();
+    }
+
+    void identify()
+    {
+        import std.system : os;
+
+        version (Windows) {
+            immutable osName = "windows";
+        } else {
+            version (linux) {
+                immutable osName = "linux";
+            } else {
+                immutable osName = "unknown";
+            }
+        }
+
+        opcodeIdentifyHandle(Json([
+            "token": Json(api_.token),
+            "properties": Json([
+                "$os": Json(osName),
+                "$browser": Json("droid"),
+                "$device": Json("droid")
+            ])
+        ]));
     }
 
     private bool tryConnect(in string gatewayUrl, in bool throwEx = false)
@@ -79,13 +106,13 @@ final class Gateway
             const opPtr = "op" in parsedJson;
             assert(opPtr !is null);
 
-            const opcode = (*opPtr).get!uint;
+            const opcode = cast(Opcode) (*opPtr).get!uint;
             auto opcodeHandler = opcode in OPCODE_MAPPING;
             if (opcodeHandler) {
-                logDebug("handling opcode %d", opcode);
+                logDebug("handling opcode %s", to!string(opcode));
                 (*opcodeHandler)(parsedJson);
             } else {
-                logDebug("ignored opcode %d", opcode);
+                logDebug("ignored opcode %s", to!string(opcode));
             }
         }
     }
@@ -99,12 +126,26 @@ final class Gateway
 
         logDebug("heartbeating");
 
-        ws_.send(Json(["op": Json(1), "d": Json(lastSeqNum_)]).toString());
+        ws_.send(Json(["op": Json(Opcode.HEARTBEAT), "d": Json(lastSeqNum_)]).toString());
         heartbeatNeedsACK_ = true;
     }
 
+    private immutable(OpcodeHandlerMap) buildOpcodeHandlersMap()
+    {
+        import std.exception : assumeUnique;
+
+        OpcodeHandlerMap aaBuf;
+
+        aaBuf[Opcode.DISPATCH]      = toDelegate(&this.opcodeDispatchHandle);
+        aaBuf[Opcode.HELLO]         = toDelegate(&this.opcodeHelloHandle);
+        aaBuf[Opcode.HEARTBEAT_ACK] = toDelegate(&this.opcodeHeartbeatACKHandle);
+
+        aaBuf.rehash;
+        return assumeUnique(aaBuf);
+    }
+
     /* Opcode handlers below */
-    private void opcodeDispatchHandle(in Json json)
+    void opcodeDispatchHandle(in Json json)
     {
         // Just set the seq number for now
         lastSeqNum_ = json["s"].to!uint;
@@ -123,5 +164,12 @@ final class Gateway
         logDebug("heartbeat ack'd");
 
         heartbeatNeedsACK_ = false;
+    }
+
+    private void opcodeIdentifyHandle(in Json json)
+    {
+        logDebug("sending identify");
+
+        ws_.send(Json(["op": Json(cast(uint) Opcode.IDENTIFY), "d": json]).toString());
     }
 }
