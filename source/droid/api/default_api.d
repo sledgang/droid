@@ -42,6 +42,11 @@ final class DefaultAPI : API
         );
     }
 
+    override string token() @property @safe @nogc const pure
+    {
+        return token_;
+    }
+
     private R makeRequest(R)(
         in string url,
         in HTTPMethod method,
