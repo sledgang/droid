@@ -15,5 +15,3 @@ droid is under [the MIT license](LICENSE.txt).
 
 As for the libraries droid uses:
 * [vibe.d](https://code.dlang.org/packages/vibe-d) uses the [MIT license](https://www.tldrlegal.com/l/mit).
-* [painlessjson](https://code.dlang.org/packages/painlessjson) uses the
-  [Boost Software License 1.0](https://www.tldrlegal.com/l/boost).
