@@ -129,7 +129,7 @@ final class Gateway
 
         logDebug("heartbeating");
 
-        ws_.send(Json(["op": Json(Opcode.HEARTBEAT), "d": Json(lastSeqNum_)]).toString());
+        ws_.send(Json(["op": Json(cast(uint) Opcode.HEARTBEAT), "d": Json(lastSeqNum_)]).toString());
         heartbeatNeedsACK_ = true;
     }
 
