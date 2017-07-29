@@ -45,7 +45,7 @@ final class Gateway
     void connect(in string gatewayUrl = GATEWAY_URL)
     {
         if (!tryConnect(gatewayUrl)) {
-            tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].str, true);
+            tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].get!string, true);
         }
 
         try {
