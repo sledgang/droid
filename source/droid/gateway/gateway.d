@@ -115,6 +115,9 @@ final class Gateway
                 logDebug("ignored opcode %s", to!string(opcode));
             }
         }
+
+        logInfo("[GATEWAY] lost connection, close code %d (reason %s)", ws_.closeCode, ws_.closeReason);
+        exitEventLoop(true);
     }
 
     private void heartbeat()
