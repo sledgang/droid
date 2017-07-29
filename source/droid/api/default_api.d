@@ -1,10 +1,13 @@
 module droid.api.default_api;
 
+import std.conv;
+
 import vibe.http.client,
        vibe.data.json;
 
 import droid.droidversion,
-       droid.api.api;
+       droid.api.api,
+       droid.data;
 
 final class DefaultAPI : API
 {
@@ -22,6 +25,11 @@ final class DefaultAPI : API
         tokenProper_ = makeTokenProper(token);
         baseUrl_     = baseUrl;
         userAgent_   = userAgent;
+    }
+
+    override User getUser(in Snowflake id)
+    {
+        return deserializeJson!User(fetch(HTTPMethod.GET, text("/users/", id)));
     }
 
     override Json fetch(in HTTPMethod method, in string path, in string postData = "")
