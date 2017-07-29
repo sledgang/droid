@@ -1,7 +1,8 @@
 module droid.cache.discord;
 
 import droid.cache.primitives,
-       droid.api;
+       droid.api,
+       droid.data;
 
 struct DiscordCache(Cache)
     if (isCache!Cache)
@@ -15,7 +16,10 @@ struct DiscordCache(Cache)
         api_ = api;
     }
 
-    // TODO: add helper methods for dickswords stuff
+    User user(in Snowflake id)
+    {
+        return backingCache_.fetch(createKey!(User, id), _ => api_.getUser(id));
+    }
 
     T read(T)(in string id) const
     {
@@ -46,5 +50,17 @@ struct DiscordCache(Cache)
     Cache backingCache() @property @safe const pure
     {
         return backingCache_;
+    }
+
+    template createKey(T, Snowflake id)
+    {
+        import std.conv : text;
+
+        // this shall be expanded
+        static if (is(T == User)) {
+            enum createKey = text("user/", id);
+        } else {
+            enum createKey = text("unknown/", id);
+        }
     }
 }
