@@ -3,7 +3,8 @@ module droid.api.default_api;
 import std.conv;
 
 import vibe.http.client,
-       vibe.data.json;
+       vibe.data.json,
+       vibe.core.log;
 
 import droid.droidversion,
        droid.api.api,
@@ -29,7 +30,7 @@ final class DefaultAPI : API
 
     override User getUser(in Snowflake id)
     {
-        return deserializeJson!User(fetch(HTTPMethod.GET, text("/users/", id)));
+        return deserializeDataObject!User(fetch(HTTPMethod.GET, text("/users/", cast(ulong) id)));
     }
 
     override Json fetch(in HTTPMethod method, in string path, in string postData = "")
@@ -45,7 +46,11 @@ final class DefaultAPI : API
             makeAPIUrl(path),
             method,
             (scope req) { if (postData.length != 0) req.bodyWriter.write(postData); },
-            (scope res) => res.readJson()
+            (scope res) {
+                auto j = res.readJson();
+                logDebug("[API] fetch %s: %s", path, j.toPrettyString());
+                return j;
+            }
         );
     }
 
