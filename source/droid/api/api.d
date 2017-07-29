@@ -1,11 +1,13 @@
 module droid.api.api;
 
-import std.json;
-
-import vibe.http.common : HTTPMethod;
+import vibe.http.common,
+       vibe.data.json;
 
 interface API
 {
-    JSONValue fetch(in HTTPMethod method, in string path, in string postData = "");
+    Json fetch(in HTTPMethod method, in string path, in string postData = "");
+
+
+
     string token() @property @safe @nogc const pure;
 }
