@@ -10,5 +10,5 @@ struct User
     string username;
     string discriminator;
     string avatar;
-    bool bot;
+    @optional bool bot;
 }
