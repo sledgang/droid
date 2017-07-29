@@ -145,7 +145,7 @@ final class Gateway
     }
 
     /* Opcode handlers below */
-    void opcodeDispatchHandle(in Json json)
+    private void opcodeDispatchHandle(in Json json)
     {
         // Just set the seq number for now
         lastSeqNum_ = json["s"].to!uint;
