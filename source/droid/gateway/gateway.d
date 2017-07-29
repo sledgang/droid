@@ -42,7 +42,7 @@ final class Gateway
         api_ = api;
     }
 
-    void connect(in string gatewayUrl = GATEWAY_URL)
+    void connect(in string gatewayUrl = GATEWAY_URL, in bool blocking = true)
     {
         if (!tryConnect(gatewayUrl)) {
             tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].get!string, true);
@@ -56,7 +56,7 @@ final class Gateway
             throw e;
         }
 
-        runEventLoop();
+        if (blocking) runEventLoop();
     }
 
     void identify()
