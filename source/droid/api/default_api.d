@@ -1,8 +1,7 @@
 module droid.api.default_api;
 
-import std.json;
-
-import vibe.http.client;
+import vibe.http.client,
+       vibe.data.json;
 
 import droid.droidversion,
        droid.api.api;
@@ -25,7 +24,7 @@ final class DefaultAPI : API
         userAgent_   = userAgent;
     }
 
-    override JSONValue fetch(in HTTPMethod method, in string path, in string postData = "")
+    override Json fetch(in HTTPMethod method, in string path, in string postData = "")
     in
     {
         if (postData.length == 0) assert(method == HTTPMethod.GET);
@@ -34,11 +33,11 @@ final class DefaultAPI : API
     {
         import vibe.stream.operations : readAllUTF8;
 
-        return makeRequest!(JSONValue)(
+        return makeRequest!Json(
             makeAPIUrl(path),
             method,
             (scope req) { if (postData.length != 0) req.bodyWriter.write(postData); },
-            (scope res) => parseJSON(res.bodyReader.readAllUTF8())
+            (scope res) => res.readJson()
         );
     }
 
