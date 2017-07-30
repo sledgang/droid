@@ -16,11 +16,6 @@ import droid.exception,
        droid.api,
        droid.gateway.opcode;
 
-private struct OpcodeHandler
-{
-    Opcode opcode;
-}
-
 final class Gateway
 {
     enum GATEWAY_URL = "wss://gateway.discord.gg/?v=6&encoding=json";
