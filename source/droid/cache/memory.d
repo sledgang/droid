@@ -2,29 +2,29 @@ module droid.cache.memory;
 
 import std.variant;
 
-struct MemoryCache
+import droid.cache.interfaces;
+
+class MemoryCache : Cache
 {
-    alias Entry = Variant;
+    private Cache.Entry[string] cache;
 
-    private Entry[string] cache;
-
-    T read(T)(in string id) const
+    Cache.Entry read(in string id) const
     {
-        return cache[id].get!T;
+        return cache[id];
     }
 
-    string write(T)(in string id, in T item)
+    string write(in string id, Cache.Entry item)
     {
         cache[id] = item;
 
         return id;
     }
 
-    T fetch(T)(in string id, T delegate(in string id) fallbackDelegate)
+    Cache.Entry fetch(in string id, Cache.Entry delegate(in string id) fallbackDelegate)
     {
         auto itemPtr = id in cache;
         if (itemPtr) {
-            return (*itemPtr).get!T;
+            return *itemPtr;
         } else {
             auto fallback = fallbackDelegate(id);
             write(id, fallback);
@@ -36,11 +36,5 @@ struct MemoryCache
     bool remove(in string id)
     {
         return cache.remove(id);
-    }
-
-    bool opBinaryRight(string op)(in string id)
-        if (op == "in")
-    {
-        return (id in cache) != null;
     }
 }

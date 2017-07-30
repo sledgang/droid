@@ -1,11 +1,10 @@
 module droid.cache.discord;
 
-import droid.cache.primitives,
+import droid.cache.interfaces,
        droid.api,
        droid.data;
 
-struct DiscordCache(Cache)
-    if (isCache!Cache)
+final class DiscordCache : Cache
 {
     private Cache backingCache_;
     private API api_;
@@ -18,49 +17,43 @@ struct DiscordCache(Cache)
 
     User user(in Snowflake id)
     {
-        return backingCache_.fetch(createKey!(User, id), _ => api_.getUser(id));
+        return backingCache_.fetch(createKey!User(id), _ => Cache.Entry(api_.getUser(id))).get!User;
     }
 
-    T read(T)(in string id) const
+    override Cache.Entry read(in string id) const
     {
-        return backingCache_.read!T(id);
+        return backingCache_.read(id);
     }
 
-    string write(T)(in string id, in T item)
+    string write(in string id, Cache.Entry item)
     {
         return backingCache_.write(id, item);
     }
 
-    T fetch(T)(in string id, T delegate(in string id) fallbackDelegate)
+    Cache.Entry fetch(in string id, Cache.Entry delegate(in string id) fallbackDelegate)
     {
         return backingCache_.fetch(id, fallbackDelegate);
     }
 
     bool remove(in string id)
     {
-        return cache.remove(id);
+        return backingCache_.remove(id);
     }
 
-    bool opBinaryRight(string op)(in string id)
-        if (op == "in")
-    {
-        return id in cache;
-    }
-
-    Cache backingCache() @property @safe const pure
+    auto backingCache() @property @safe const pure
     {
         return backingCache_;
     }
 
-    template createKey(T, Snowflake id)
+    string createKey(T)(Snowflake id)
     {
         import std.conv : text;
 
         // this shall be expanded
         static if (is(T == User)) {
-            enum createKey = text("user/", id);
+            return text("user/", id);
         } else {
-            enum createKey = text("unknown/", id);
+            return text("unknown/", id);
         }
     }
 }
