@@ -2,10 +2,12 @@ module droid.gateway.gateway;
 
 import core.time,
        std.functional,
-       std.conv;
+       std.conv,
+       std.stdio,
+       std.typecons,
+       std.experimental.logger;
 
 import vibe.core.core,
-       vibe.core.log,
        vibe.http.common,
        vibe.http.client,
        vibe.http.websockets,
@@ -30,16 +32,19 @@ final class Gateway
     private Timer heartbeatTimer_;
     private uint lastSeqNum_;
     private bool heartbeatNeedsACK_;
+    private Logger logger_;
 
-    this(API api)
+    this(API api, Logger logger = null)
     {
         OPCODE_MAPPING = buildOpcodeHandlersMap();
         api_ = api;
+        logger_ = logger ? logger : defaultLogger;
     }
 
     void connect(in bool blocking = true, in string gatewayUrl = GATEWAY_URL)
     {
         if (!tryConnect(gatewayUrl)) {
+            logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl);
             tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].get!string, true);
         }
 
@@ -83,7 +88,7 @@ final class Gateway
         ws_ = connectWebSocket(URL(gatewayUrl));
         if (!ws_.connected) {
             if (throwEx) {
-                throw new DroidException("could not connect to the websocket at " ~ gatewayUrl ~ "!");
+                throw new DroidException("Could not connect to the websocket at " ~ gatewayUrl ~ "!");
             }
 
             return false;
@@ -104,14 +109,14 @@ final class Gateway
             const opcode = cast(Opcode) (*opPtr).get!uint;
             auto opcodeHandler = opcode in OPCODE_MAPPING;
             if (opcodeHandler) {
-                logDebug("handling opcode %s", to!string(opcode));
+                logger_.tracef("Handling opcode %s", to!string(opcode));
                 (*opcodeHandler)(parsedJson);
             } else {
-                logDebug("ignored opcode %s", to!string(opcode));
+                logger_.tracef("Ignored opcode %s", to!string(opcode));
             }
         }
 
-        logInfo("[GATEWAY] lost connection, close code %d (reason %s)", ws_.closeCode, ws_.closeReason);
+        logger_.infof("Lost connection, close code %d (reason %s)", ws_.closeCode, ws_.closeReason);
         exitEventLoop(true);
     }
 
@@ -119,10 +124,10 @@ final class Gateway
     {
         if (heartbeatNeedsACK_) {
             ws_.close();
-            throw new DroidException("did not receive ACK for heartbeat -- zombie connection");
+            throw new DroidException("Did not receive ACK for heartbeat -- zombie connection");
         }
 
-        logDebug("heartbeating");
+        logger_.tracef("Heartbeating");
 
         ws_.send(Json(["op": Json(cast(uint) Opcode.HEARTBEAT), "d": Json(lastSeqNum_)]).toString());
         heartbeatNeedsACK_ = true;
@@ -152,22 +157,59 @@ final class Gateway
     private void opcodeHelloHandle(in Json json)
     {
         const heartbeatInterval = json["d"]["heartbeat_interval"].to!long;
-        logDebug("heartbeat interval: %s", heartbeatInterval);
+        logger_.tracef("Got heartbeat interval set at %d ms", heartbeatInterval);
 
         heartbeatTimer_ = setTimer(dur!"msecs"(heartbeatInterval), toDelegate(&this.heartbeat), true);
     }
 
     private void opcodeHeartbeatACKHandle(in Json)
     {
-        logDebug("heartbeat ack'd");
+        logger_.tracef("Heartbeat ACK'd");
 
         heartbeatNeedsACK_ = false;
     }
 
     private void opcodeIdentifyHandle(in Json json)
     {
-        logDebug("sending identify");
+        logger_.tracef("Sending IDENTIFY");
 
         ws_.send(Json(["op": Json(cast(uint) Opcode.IDENTIFY), "d": json]).toString());
+    }
+    /* End opcode handlers */
+
+    private auto defaultLogger() @property
+    {
+        return new class (stderr) FileLogger
+        {
+            import std.concurrency : Tid;
+            import std.datetime.systime : SysTime;
+
+            @disable this();
+
+            this(in string fn, const LogLevel lv = LogLevel.all) @safe
+            {
+                super(fn, lv);
+            }
+
+            this(File file, const LogLevel lv = LogLevel.all) @safe
+            {
+                super(file, lv);
+            }
+
+            override protected void beginLogMsg(string file, int line, string funcName,
+                string prettyFuncName, string moduleName, LogLevel logLevel,
+                Tid threadId, SysTime timestamp, Logger logger)
+                @safe
+            {
+                import std.format : formattedWrite;
+
+                super.beginLogMsg(
+                    file, line, funcName, prettyFuncName, moduleName,
+                    logLevel, threadId, timestamp, logger
+                );
+
+                formattedWrite(super.file.lockingTextWriter(), "[GATEWAY] ");
+            }
+        };
     }
 }
