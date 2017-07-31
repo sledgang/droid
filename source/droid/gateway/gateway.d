@@ -62,7 +62,7 @@ final class Gateway
         if (blocking) runEventLoop();
     }
 
-    void identify()
+    private void identify()
     {
         import std.system : os;
 
