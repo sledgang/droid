@@ -7,11 +7,11 @@ import droid.gateway.opcode;
 
 struct Packet
 {
-    Opcode opcode;
-    Json data;
+    @name("op") Opcode opcode;
+    @name("d") Json data;
 
     @optional {
-        uint seq;
-        string type;
+        @name("s") uint seq;
+        @name("t") string type;
     }
 }
