@@ -16,13 +16,14 @@ import vibe.core.core,
 
 import droid.exception,
        droid.api,
-       droid.gateway.opcode;
+       droid.gateway.opcode,
+       droid.gateway.packet;
 
 final class Gateway
 {
     enum GATEWAY_URL = "wss://gateway.discord.gg/?v=6&encoding=json";
 
-    private alias OpcodeDelegate = void delegate(in Json);
+    private alias OpcodeDelegate = void delegate(in Packet);
     private alias OpcodeHandlerMap = OpcodeDelegate[Opcode];
 
     private immutable OpcodeHandlerMap OPCODE_MAPPING;
@@ -102,22 +103,24 @@ final class Gateway
         assert(ws_ && ws_.connected);
 
         while (ws_.waitForData()) {
-            const parsedJson = parseJsonString(ws_.receiveText());
-            const opPtr = "op" in parsedJson;
-            assert(opPtr !is null);
+            const packet = parseMessage(ws_.receiveText());
 
-            const opcode = cast(Opcode) (*opPtr).get!uint;
-            auto opcodeHandler = opcode in OPCODE_MAPPING;
+            auto opcodeHandler = packet.opcode in OPCODE_MAPPING;
             if (opcodeHandler) {
-                logger_.tracef("Handling opcode %s", to!string(opcode));
-                (*opcodeHandler)(parsedJson);
+                logger_.tracef("Handling opcode %s", to!string(packet.opcode));
+                (*opcodeHandler)(packet);
             } else {
-                logger_.tracef("Ignored opcode %s", to!string(opcode));
+                logger_.tracef("Ignored opcode %s", to!string(packet.opcode));
             }
         }
 
         logger_.infof("Lost connection, close code %d (reason %s)", ws_.closeCode, ws_.closeReason);
         exitEventLoop(true);
+    }
+
+    private Packet parseMessage(in string data)
+    {
+        return deserializeJson!Packet(parseJsonString(data));
     }
 
     private void heartbeat()
@@ -148,21 +151,21 @@ final class Gateway
     }
 
     /* Opcode handlers below */
-    private void opcodeDispatchHandle(in Json json)
+    private void opcodeDispatchHandle(in Packet packet)
     {
         // Just set the seq number for now
-        lastSeqNum_ = json["s"].to!uint;
+        lastSeqNum_ = packet.seq;
     }
 
-    private void opcodeHelloHandle(in Json json)
+    private void opcodeHelloHandle(in Packet packet)
     {
-        const heartbeatInterval = json["d"]["heartbeat_interval"].to!long;
+        const heartbeatInterval = packet.data["heartbeat_interval"].to!long;
         logger_.tracef("Got heartbeat interval set at %d ms", heartbeatInterval);
 
         heartbeatTimer_ = setTimer(dur!"msecs"(heartbeatInterval), toDelegate(&this.heartbeat), true);
     }
 
-    private void opcodeHeartbeatACKHandle(in Json)
+    private void opcodeHeartbeatACKHandle(in Packet /* ignored */)
     {
         logger_.tracef("Heartbeat ACK'd");
 
