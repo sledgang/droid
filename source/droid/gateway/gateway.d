@@ -23,7 +23,7 @@ final class Gateway
 {
     enum GATEWAY_URL = "wss://gateway.discord.gg/?v=6&encoding=json";
 
-    private alias OpcodeDelegate = void delegate(in Packet);
+    private alias OpcodeDelegate = void delegate(in ref Packet);
     private alias OpcodeHandlerMap = OpcodeDelegate[Opcode];
 
     private immutable OpcodeHandlerMap OPCODE_MAPPING;
@@ -151,13 +151,13 @@ final class Gateway
     }
 
     /* Opcode handlers below */
-    private void opcodeDispatchHandle(in Packet packet)
+    private void opcodeDispatchHandle(in ref Packet packet)
     {
         // Just set the seq number for now
         lastSeqNum_ = packet.seq;
     }
 
-    private void opcodeHelloHandle(in Packet packet)
+    private void opcodeHelloHandle(in ref Packet packet)
     {
         const heartbeatInterval = packet.data["heartbeat_interval"].to!long;
         logger_.tracef("Got heartbeat interval set at %d ms", heartbeatInterval);
@@ -165,7 +165,7 @@ final class Gateway
         heartbeatTimer_ = setTimer(dur!"msecs"(heartbeatInterval), toDelegate(&this.heartbeat), true);
     }
 
-    private void opcodeHeartbeatACKHandle(in Packet /* ignored */)
+    private void opcodeHeartbeatACKHandle(in ref Packet /* ignored */)
     {
         logger_.tracef("Heartbeat ACK'd");
 
