@@ -31,9 +31,11 @@ final class Gateway
     private API api_;
     private WebSocket ws_;
     private Timer heartbeatTimer_;
-    private uint lastSeqNum_;
     private bool heartbeatNeedsACK_;
     private Logger logger_;
+
+    private uint lastSeqNum_;
+    private string sessionId_;
 
     this(API api, Logger logger = null)
     {
@@ -155,6 +157,18 @@ final class Gateway
     {
         // Just set the seq number for now
         lastSeqNum_ = packet.seq;
+
+        logger_.tracef("Got %s event in dispatch", packet.type);
+
+        switch (packet.type) {
+            case "READY":
+                sessionId_ = packet.data["session_id"].get!string;
+                break;
+
+            default:
+                // We should never get here so log something.
+                logger_.infof("Unknown dispatch event. Type: %s | Data: %s", packet.type, packet.data.toString);
+        }
     }
 
     private void opcodeHelloHandle(in ref Packet packet)
