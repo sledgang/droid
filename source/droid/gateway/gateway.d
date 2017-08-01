@@ -42,7 +42,7 @@ final class Gateway
 
     private alias DispatchDelegate = void delegate(in ref Json);
 
-    private DispatchDelegate[][string] dispatchHandlers_;
+    private DispatchDelegate[][EventType] dispatchHandlers_;
 
     this(API api, in string gatewayUrl = GATEWAY_URL, Logger logger = null)
     {
@@ -71,9 +71,9 @@ final class Gateway
         if (blocking) runEventLoop();
     }
 
-    void subscribe(in string eventName, DispatchDelegate handler)
+    void subscribe(in EventType event, DispatchDelegate handler)
     {
-        dispatchHandlers_[eventName] ~= handler;
+        dispatchHandlers_[event] ~= handler;
     }
 
     private void identify()
