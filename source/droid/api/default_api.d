@@ -33,7 +33,7 @@ final class DefaultAPI : API
         return deserializeDataObject!User(fetch(HTTPMethod.GET, text("/users/", cast(ulong) id)));
     }
 
-    override Json fetch(in HTTPMethod method, in string path, in string postData = "")
+    override Json fetch(in HTTPMethod method, in string path, in Json postData = Json.emptyObject)
     in
     {
         if (postData.length == 0) assert(method == HTTPMethod.GET);
@@ -45,7 +45,11 @@ final class DefaultAPI : API
         return makeRequest!Json(
             makeAPIUrl(path),
             method,
-            (scope req) { if (postData.length != 0) req.bodyWriter.write(postData); },
+            (scope req) {
+                if (postData.length != 0) {
+                    req.writeJsonBody(postData);
+                }
+            },
             (scope res) {
                 auto j = res.readJson();
                 logDebug("[API] fetch %s: %s", path, j.toPrettyString());
