@@ -58,7 +58,7 @@ final class DefaultAPI : API
         );
     }
 
-    override string token() @property @safe @nogc const pure
+    override inout(string) token() @property @safe @nogc inout pure
     {
         return token_;
     }
@@ -90,13 +90,19 @@ final class DefaultAPI : API
         return toReturn;
     }
 
-    pragma(inline, true) private string makeTokenProper(in string token) @safe const pure
+    pragma(inline, true)
+    private string makeTokenProper(in string token) @safe const pure
     {
-        return "Bot " ~ token;
+        import std.algorithm.searching : startsWith;
+
+        return token.startsWith("Bot", "Bearer") ? token : "Bot " ~ token;
     }
 
-    pragma(inline, true) private string makeAPIUrl(in string path) @safe const pure
+    pragma(inline, true)
+    private string makeAPIUrl(in string[] paths...)
     {
-        return baseUrl_ ~ path;
+        import std.array : join;
+
+        return baseUrl_ ~ join(paths, "/");
     }
 }
