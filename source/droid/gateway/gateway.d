@@ -17,7 +17,8 @@ import vibe.core.core,
 import droid.exception,
        droid.api,
        droid.gateway.opcode,
-       droid.gateway.packet;
+       droid.gateway.packet,
+       droid.data.event_type;
 
 final class Gateway
 {
@@ -173,14 +174,44 @@ final class Gateway
 
         logger_.tracef("Got %s event in dispatch", packet.type);
 
-        switch (packet.type) {
-            case "READY":
+        final switch (packet.type) with (EventType) {
+            case READY:
                 sessionId_ = packet.data["session_id"].get!string;
                 break;
 
-            default:
-                // We should never get here so log something.
-                logger_.infof("Unknown dispatch event. Type: %s | Data: %s", packet.type, packet.data.toString);
+            case RESUMED:
+            case CHANNEL_CREATE:
+            case CHANNEL_UPDATE:
+            case CHANNEL_DELETE:
+            case CHANNEL_PINS_UPDATE:
+            case GUILD_CREATE:
+            case GUILD_UPDATE:
+            case GUILD_DELETE:
+            case GUILD_BAN_ADD:
+            case GUILD_BAN_REMOVE:
+            case GUILD_EMOJIS_UPDATE:
+            case GUILD_INTEGRATIONS_UPDATE:
+            case GUILD_MEMBER_ADD:
+            case GUILD_MEMBER_REMOVE:
+            case GUILD_MEMBER_UPDATE:
+            case GUILD_MEMBERS_CHUNK:
+            case GUILD_ROLE_CREATE:
+            case GUILD_ROLE_UPDATE:
+            case GUILD_ROLE_DELETE:
+            case MESSAGE_CREATE:
+            case MESSAGE_UPDATE:
+            case MESSAGE_DELETE:
+            case MESSAGE_DELETE_BULK:
+            case MESSAGE_REACTION_ADD:
+            case MESSAGE_REACTION_REMOVE:
+            case MESSAGE_REACTION_REMOVE_ALL:
+            case PRESENCE_UPDATE:
+            case TYPING_START:
+            case USER_UPDATE:
+            case VOICE_STATE_UPDATE:
+            case VOICE_SERVER_UPDATE:
+            case WEBHOOKS_UPDATE:
+                logger_.errorf("Got event %s, not supported yet!", packet.type);
         }
 
         publish(packet);

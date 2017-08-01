@@ -3,7 +3,8 @@ module droid.gateway.packet;
 import vibe.data.json,
        vibe.data.serialization;
 
-import droid.gateway.opcode;
+import droid.gateway.opcode,
+       droid.data.event_type;
 
 struct Packet
 {
@@ -12,6 +13,6 @@ struct Packet
 
     @optional {
         @name("s") uint seq;
-        @name("t") string type;
+        @name("t") EventType type;
     }
 }
