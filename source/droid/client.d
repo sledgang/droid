@@ -56,6 +56,21 @@ class Client
         runEventLoop();
     }
 
+    final inout(API) api() @property @safe inout pure
+    {
+        return api_;
+    }
+
+    final inout(Gateway) gateway() @property @safe inout pure
+    {
+        return gateway_;
+    }
+
+    final inout(DiscordCache) cache() @property @safe inout pure
+    {
+        return cache_;
+    }
+
     private void setupFromConfig(Config config)
     {
         api_     = config.api;
