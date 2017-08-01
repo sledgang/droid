@@ -174,44 +174,9 @@ final class Gateway
 
         logger_.tracef("Got %s event in dispatch", packet.type);
 
-        final switch (packet.type) with (EventType) {
-            case READY:
-                sessionId_ = packet.data["session_id"].get!string;
-                break;
-
-            case RESUMED:
-            case CHANNEL_CREATE:
-            case CHANNEL_UPDATE:
-            case CHANNEL_DELETE:
-            case CHANNEL_PINS_UPDATE:
-            case GUILD_CREATE:
-            case GUILD_UPDATE:
-            case GUILD_DELETE:
-            case GUILD_BAN_ADD:
-            case GUILD_BAN_REMOVE:
-            case GUILD_EMOJIS_UPDATE:
-            case GUILD_INTEGRATIONS_UPDATE:
-            case GUILD_MEMBER_ADD:
-            case GUILD_MEMBER_REMOVE:
-            case GUILD_MEMBER_UPDATE:
-            case GUILD_MEMBERS_CHUNK:
-            case GUILD_ROLE_CREATE:
-            case GUILD_ROLE_UPDATE:
-            case GUILD_ROLE_DELETE:
-            case MESSAGE_CREATE:
-            case MESSAGE_UPDATE:
-            case MESSAGE_DELETE:
-            case MESSAGE_DELETE_BULK:
-            case MESSAGE_REACTION_ADD:
-            case MESSAGE_REACTION_REMOVE:
-            case MESSAGE_REACTION_REMOVE_ALL:
-            case PRESENCE_UPDATE:
-            case TYPING_START:
-            case USER_UPDATE:
-            case VOICE_STATE_UPDATE:
-            case VOICE_SERVER_UPDATE:
-            case WEBHOOKS_UPDATE:
-                logger_.errorf("Got event %s, not supported yet!", packet.type);
+        // We're only really interested in the READY callback here.
+        if (packet.type == EventType.READY) {
+            sessionId_ = packet.data["session_id"].get!string;
         }
 
         publish(packet);
@@ -221,6 +186,7 @@ final class Gateway
     {
         import std.algorithm.iteration : each;
 
+        logger_.tracef("Publishing packet of type %s", packet.type);
         if (auto handlersPtr = packet.type in dispatchHandlers_) {
             (*handlersPtr).each!(handler => handler(packet.data));
         }
