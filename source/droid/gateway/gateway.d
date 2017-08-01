@@ -37,6 +37,10 @@ final class Gateway
     private uint lastSeqNum_;
     private string sessionId_;
 
+    private alias DispatchDelegate = void delegate(in ref Json);
+
+    private DispatchDelegate[][string] dispatchHandlers_;
+
     this(API api, Logger logger = null)
     {
         OPCODE_MAPPING = buildOpcodeHandlersMap();
@@ -60,6 +64,11 @@ final class Gateway
         }
 
         if (blocking) runEventLoop();
+    }
+
+    void subscribe(in string eventName, DispatchDelegate handler)
+    {
+        dispatchHandlers_[eventName] ~= handler;
     }
 
     private void identify()
@@ -168,6 +177,17 @@ final class Gateway
             default:
                 // We should never get here so log something.
                 logger_.infof("Unknown dispatch event. Type: %s | Data: %s", packet.type, packet.data.toString);
+        }
+
+        publish(packet);
+    }
+
+    private void publish(in ref Packet packet)
+    {
+        import std.algorithm.iteration : each;
+
+        if (auto handlersPtr = packet.type in dispatchHandlers_) {
+            (*handlersPtr).each!(handler => handler(packet.data));
         }
     }
 
