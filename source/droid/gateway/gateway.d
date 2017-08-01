@@ -28,6 +28,8 @@ final class Gateway
 
     private immutable OpcodeHandlerMap OPCODE_MAPPING;
 
+    private immutable string gatewayUrl_;
+
     private API api_;
     private WebSocket ws_;
     private Timer heartbeatTimer_;
@@ -41,17 +43,19 @@ final class Gateway
 
     private DispatchDelegate[][string] dispatchHandlers_;
 
-    this(API api, Logger logger = null)
+    this(API api, in string gatewayUrl = GATEWAY_URL, Logger logger = null)
     {
         OPCODE_MAPPING = buildOpcodeHandlersMap();
+
+        gatewayUrl_ = gatewayUrl;
         api_ = api;
         logger_ = logger ? logger : defaultLogger;
     }
 
-    void connect(in bool blocking = true, in string gatewayUrl = GATEWAY_URL)
+    void connect(in bool blocking = true)
     {
-        if (!tryConnect(gatewayUrl)) {
-            logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl);
+        if (!tryConnect(gatewayUrl_)) {
+            logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl_);
             tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].get!string, true);
         }
 
