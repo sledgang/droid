@@ -1,4 +1,4 @@
-module droid.api.default_api;
+module droid.api;
 
 import std.conv;
 
@@ -7,10 +7,9 @@ import vibe.http.client,
        vibe.core.log;
 
 import droid.droidversion,
-       droid.api.api,
        droid.data;
 
-final class DefaultAPI : API
+class API
 {
     enum DEFAULT_BASE_URL   = "https://discordapp.com/api";
     enum DEFAULT_USER_AGENT = "DiscordBot (https://github.com/y32/droid, " ~ VERSION ~ ")";
@@ -28,12 +27,12 @@ final class DefaultAPI : API
         userAgent_   = userAgent;
     }
 
-    override User getUser(in Snowflake id)
+    User getUser(in Snowflake id)
     {
         return deserializeDataObject!User(fetch(HTTPMethod.GET, text("/users/", cast(ulong) id)));
     }
 
-    override Json fetch(in HTTPMethod method, in string path, in Json postData = Json.emptyObject)
+    Json fetch(in HTTPMethod method, in string path, in Json postData = Json.emptyObject)
     in
     {
         if (postData.length == 0) assert(method == HTTPMethod.GET);
@@ -58,7 +57,7 @@ final class DefaultAPI : API
         );
     }
 
-    override inout(string) token() @property @safe @nogc inout pure
+    final inout(string) token() @property @safe @nogc inout pure
     {
         return token_;
     }

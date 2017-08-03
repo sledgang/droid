@@ -16,8 +16,8 @@ struct Config
 
     static Config mergeWithDefaults(Config other)
     {
-        auto api     =     other.api is null ? new DefaultAPI(other.token) : other.api;
-        auto gateway = other.gateway is null ? new Gateway(api)            : other.gateway;
+        auto api     =     other.api is null ? new API(other.token) : other.api;
+        auto gateway = other.gateway is null ? new Gateway(api)     : other.gateway;
 
         return Config(
             other.token,
