@@ -2,11 +2,11 @@ module droid.api;
 
 import std.conv,
        std.typecons,
-       std.variant;
+       std.variant,
+       std.experimental.logger;
 
 import vibe.http.client,
-       vibe.data.json,
-       vibe.core.log;
+       vibe.data.json;
 
 import droid.droidversion,
        droid.data;
@@ -21,12 +21,20 @@ class API
     private immutable string tokenProper_;
     private immutable string userAgent_;
 
-    this(in string token, in string baseUrl = DEFAULT_BASE_URL, in string userAgent = DEFAULT_USER_AGENT)
+    private Logger logger_;
+
+    this(
+        in string token,
+        in string baseUrl = DEFAULT_BASE_URL,
+        in string userAgent = DEFAULT_USER_AGENT,
+        Logger logger = null
+    )
     {
         token_       = token;
         tokenProper_ = makeTokenProper(token);
         baseUrl_     = baseUrl;
         userAgent_   = userAgent;
+        logger_      = logger ? logger : defaultLogger;
     }
 
     string getGatewayUrl()
@@ -58,7 +66,7 @@ class API
             },
             (scope res) {
                 auto j = res.readJson();
-                logDebug("[API] fetch %s: %s", path, j.toPrettyString());
+                logger_.tracef("fetch %s: %s", path, j.toPrettyString());
                 return j;
             }
         );
@@ -110,5 +118,43 @@ class API
         import std.array : join;
 
         return baseUrl_ ~ path;
+    }
+
+    private auto defaultLogger() @property
+    {
+        import std.stdio : File, stderr;
+
+        return new class (stderr) FileLogger
+        {
+            import std.concurrency : Tid;
+            import std.datetime.systime : SysTime;
+
+            @disable this();
+
+            this(in string fn, const LogLevel lv = LogLevel.all) @safe
+            {
+                super(fn, lv);
+            }
+
+            this(File file, const LogLevel lv = LogLevel.all) @safe
+            {
+                super(file, lv);
+            }
+
+            override protected void beginLogMsg(string file, int line, string funcName,
+                string prettyFuncName, string moduleName, LogLevel logLevel,
+                Tid threadId, SysTime timestamp, Logger logger)
+                @safe
+            {
+                import std.format : formattedWrite;
+
+                super.beginLogMsg(
+                    file, line, funcName, prettyFuncName, moduleName,
+                    logLevel, threadId, timestamp, logger
+                );
+
+                formattedWrite(super.file.lockingTextWriter(), "[API] ");
+            }
+        };
     }
 }
