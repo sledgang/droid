@@ -1,6 +1,8 @@
 module droid.api;
 
-import std.conv;
+import std.conv,
+       std.typecons,
+       std.variant;
 
 import vibe.http.client,
        vibe.data.json,
@@ -29,24 +31,24 @@ class API
 
     User getUser(in Snowflake id)
     {
-        return deserializeDataObject!User(fetch(HTTPMethod.GET, text("/users/", cast(ulong) id)));
+        return deserializeDataObject!User(
+            fetch(HTTPMethod.GET, "/users/" ~ id.toString)
+        );
     }
 
-    Json fetch(in HTTPMethod method, in string path, in Json postData = Json.emptyObject)
+    Json fetch(in HTTPMethod method, in string path, in Nullable!Json postData = Nullable!Json())
     in
     {
-        if (postData.length == 0) assert(method == HTTPMethod.GET);
+        if (method == HTTPMethod.GET) assert(postData.isNull);
     }
     body
     {
-        import vibe.stream.operations : readAllUTF8;
-
         return makeRequest!Json(
             makeAPIUrl(path),
             method,
             (scope req) {
-                if (postData.length != 0) {
-                    req.writeJsonBody(postData);
+                if (!postData.isNull) {
+                    req.writeJsonBody(postData.get());
                 }
             },
             (scope res) {
@@ -98,10 +100,10 @@ class API
     }
 
     pragma(inline, true)
-    private string makeAPIUrl(in string[] paths...)
+    private string makeAPIUrl(in string path)
     {
         import std.array : join;
 
-        return baseUrl_ ~ join(paths, "/");
+        return baseUrl_ ~ path;
     }
 }
