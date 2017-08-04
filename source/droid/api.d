@@ -29,6 +29,11 @@ class API
         userAgent_   = userAgent;
     }
 
+    string getGatewayUrl()
+    {
+        return fetch(HTTPMethod.GET, "/gateway")["url"].get!string;
+    }
+
     User getUser(in Snowflake id)
     {
         return deserializeDataObject!User(

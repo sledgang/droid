@@ -57,7 +57,7 @@ final class Gateway
     {
         if (!tryConnect(gatewayUrl_)) {
             logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl_);
-            tryConnect(api_.fetch(HTTPMethod.GET, "/gateway")["url"].get!string, true);
+            tryConnect(api_.getGatewayUrl(), true);
         }
 
         try {
