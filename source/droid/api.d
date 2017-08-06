@@ -3,10 +3,14 @@ module droid.api;
 import std.conv,
        std.typecons,
        std.variant,
-       std.experimental.logger;
+       std.datetime,
+       std.experimental.logger,
+       core.time,
+       core.sync.mutex;
 
 import vibe.http.client,
-       vibe.data.json;
+       vibe.data.json,
+       vibe.core.sync;
 
 import droid.droidversion,
        droid.data;
@@ -16,11 +20,16 @@ class API
     enum DEFAULT_BASE_URL   = "https://discordapp.com/api";
     enum DEFAULT_USER_AGENT = "DiscordBot (https://github.com/y32/droid, " ~ VERSION ~ ")";
 
+    alias RateLimitTuple = Tuple!(string, "route", string, "major");
+    enum DEFAULT_RL_KEY = `tuple!("route", "major")(__FUNCTION__, "")`;
+
     private immutable string baseUrl_;
     private immutable string token_;
     private immutable string tokenProper_;
     private immutable string userAgent_;
 
+    private shared Mutex[RateLimitTuple] rateLimitMutexMap_;
+    private shared Mutex globalRateLimitMutex_;
     private Logger logger_;
 
     this(
@@ -30,35 +39,42 @@ class API
         Logger logger = null
     )
     {
-        token_       = token;
-        tokenProper_ = makeTokenProper(token);
-        baseUrl_     = baseUrl;
-        userAgent_   = userAgent;
-        logger_      = logger ? logger : defaultLogger;
+        token_                = token;
+        tokenProper_          = makeTokenProper(token);
+        baseUrl_              = baseUrl;
+        userAgent_            = userAgent;
+        globalRateLimitMutex_ = cast(shared) new TaskMutex();
+        logger_               = logger ? logger : defaultLogger;
     }
 
     string getGatewayUrl()
     {
-        return fetch(HTTPMethod.GET, "/gateway")["url"].get!string;
+        return fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/gateway")["url"].get!string;
     }
 
     User getUser(in Snowflake id)
     {
         return deserializeDataObject!User(
-            fetch(HTTPMethod.GET, "/users/" ~ id.toString)
+            fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/users/" ~ id.toString)
         );
     }
 
-    Json fetch(in HTTPMethod method, in string path, in Nullable!Json postData = Nullable!Json())
+    Json fetch(
+        in RateLimitTuple rl,
+        in HTTPMethod method,
+        in string path,
+        in Nullable!Json postData = Nullable!Json()
+    )
     in
     {
         if (method == HTTPMethod.GET) assert(postData.isNull);
     }
     body
     {
-        return makeRequest!Json(
-            makeAPIUrl(path),
+        return makeRequest(
+            rl,
             method,
+            makeAPIUrl(path),
             (scope req) {
                 if (!postData.isNull) {
                     req.writeJsonBody(postData.get());
@@ -77,31 +93,85 @@ class API
         return token_;
     }
 
-    private R makeRequest(R)(
-        in string url,
+    private Json makeRequest(
+        in RateLimitTuple rl,
         in HTTPMethod method,
+        in string url,
         scope void delegate(scope HTTPClientRequest) requester,
-        scope R delegate(scope HTTPClientResponse) responder
+        scope Json delegate(scope HTTPClientResponse) responder
     )
     {
-        R toReturn;
+        import core.time : msecs;
+        import vibe.core.core : sleep;
 
-        requestHTTP(
-            url,
-            (scope req) {
-                req.method = method;
+        shared Mutex mutex = void;
+        if (auto rlPtr = rl in rateLimitMutexMap_) {
+            mutex = *rlPtr;
+        } else {
+            mutex = cast(shared) new TaskMutex();
+            rateLimitMutexMap_[rl] = mutex;
+        }
 
-                req.headers["Authorization"] = tokenProper_;
-                req.headers["User-Agent"]    = userAgent_;
+        synchronized (mutex) {
+            Json toReturn;
+            auto requestDone = false;
 
-                requester(req);
-            },
-            (scope res) {
-                toReturn = responder(res);
+            while (!requestDone) {
+                requestHTTP(
+                    url,
+                    (scope req) {
+                        req.method = method;
+
+                        req.headers["Authorization"] = tokenProper_;
+                        req.headers["User-Agent"]    = userAgent_;
+
+                        requester(req);
+                    },
+                    (scope res) {
+                        if (willBeRatelimited(res)) {
+                            const timeout = calculateTimeout(res);
+                            logger_.infof("Handling ratelimiting, sleeping for %s.", timeout);
+
+                            if ("X-RateLimit-Global" in res.headers) {
+                                // This only ever happens in a 429, so we good to synchronize here.
+                                synchronized (globalRateLimitMutex_) sleep(timeout);
+                            } else {
+                                sleep(timeout);
+                            }
+                        }
+
+                        if (res.statusCode == 429) {
+                            // Need to retry the request, due to being b1nzy'd.
+                            logger_.info("Retrying request due to b1nzy.");
+                        } else {
+                            requestDone = true;
+                            toReturn = responder(res);
+                        }
+                    }
+                );
             }
-        );
 
-        return toReturn;
+            return toReturn;
+        }
+    }
+
+    pragma(inline, true)
+    private Duration calculateTimeout(in HTTPClientResponse res) @safe const
+    {
+        if (const retryAfterPtr = "Retry-After" in res.headers) {
+            return to!long(*retryAfterPtr).msecs;
+        }
+
+        const dateHeaderTime  = parseRFC822DateTime(res.headers["Date"]);
+        const resetHeaderTime = SysTime.fromUnixTime(to!long(res.headers["X-RateLimit-Reset"]));
+
+        return resetHeaderTime - dateHeaderTime;
+    }
+
+    pragma(inline, true)
+    private bool willBeRatelimited(in HTTPClientResponse res) @safe const pure
+    {
+        return res.statusCode == 429 || res.headers["X-RateLimit-Remaining"] == "0";
     }
 
     pragma(inline, true)
