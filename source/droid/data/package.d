@@ -5,4 +5,5 @@ public {
     import droid.data.event_type;
     import droid.data.snowflake;
     import droid.data.user;
+    import droid.data.activity;
 }

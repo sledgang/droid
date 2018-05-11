@@ -17,7 +17,7 @@ import droid.droidversion,
 
 class API
 {
-    enum DEFAULT_BASE_URL   = "https://discordapp.com/api";
+    enum DEFAULT_BASE_URL   = "https://discordapp.com/api/v7";
     enum DEFAULT_USER_AGENT = "DiscordBot (https://github.com/y32/droid, " ~ VERSION ~ ")";
 
     alias RateLimitTuple = Tuple!(string, "route", string, "major");
@@ -52,11 +52,22 @@ class API
         return fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/gateway")["url"].get!string;
     }
 
-    User getUser(in Snowflake id)
+    User getUser(Snowflake id)
     {
         return deserializeDataObject!User(
             fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/users/" ~ id.toString)
         );
+    }
+
+    Json sendMessage(Snowflake channelId, string content) {
+      return fetch(
+        mixin(DEFAULT_RL_KEY),
+        HTTPMethod.POST,
+        "/channels/" ~ channelId.toString ~ "/messages",
+        Nullable!Json(Json([
+          "content": Json(content)
+        ]))
+      );
     }
 
     Json fetch(
