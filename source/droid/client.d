@@ -3,9 +3,12 @@ module droid.client;
 import std.typecons,
        std.variant;
 
+import vibe.data.json;
+
 import droid.gateway,
        droid.api,
-       droid.cache;
+       droid.cache,
+       droid.data;
 
 struct Config
 {
@@ -54,6 +57,19 @@ class Client
         import vibe.core.core : runEventLoop;
 
         runEventLoop();
+    }
+
+    void changePresence(int idleSince, string status, Activity activity) {
+      this.gateway_.send(Opcode.STATUS_UPDATE, Json([
+            "since": idleSince > 0 ? Json(idleSince) : Json(null),
+            "game": Json([
+              "name": Json(activity.name),
+              "type": Json(activity.type),
+              "url": activity.isStreaming() ? Json(activity.url) : Json(null)
+            ]),
+            "status": Json(status),
+            "afk": Json(false)
+      ]));
     }
 
     final inout(API) api() @property @safe inout pure

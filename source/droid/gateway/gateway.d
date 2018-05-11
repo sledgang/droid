@@ -166,6 +166,11 @@ final class Gateway
         return assumeUnique(aaBuf);
     }
 
+    void send(Opcode opcode, Json data) {
+      logger_.tracef("Sending op %s with the data of %s", cast(uint) opcode, data);
+      ws_.send(Json(["op": Json(cast(uint) opcode), "d": data]).toString());
+    }
+
     /* Opcode handlers below */
     private void opcodeDispatchHandle(in ref Packet packet)
     {
@@ -213,6 +218,7 @@ final class Gateway
 
         ws_.send(Json(["op": Json(cast(uint) Opcode.IDENTIFY), "d": json]).toString());
     }
+
     /* End opcode handlers */
 
     private auto defaultLogger() @property
