@@ -36,9 +36,13 @@ final class Gateway
     private Timer heartbeatTimer_;
     private bool heartbeatNeedsACK_;
     private Logger logger_;
+    private bool shuttingDown = false;
 
     private uint lastSeqNum_;
     private string sessionId_;
+
+    private ubyte reconnectionAttempts;
+    private ubyte MAX_RECONNECTS = 5;
 
     private alias DispatchDelegate = void delegate(in ref Json);
 
@@ -53,7 +57,7 @@ final class Gateway
         logger_ = logger ? logger : defaultLogger;
     }
 
-    void connect(in bool blocking = true)
+    void connect(in bool blocking = true, in bool reconnecting = false)
     {
         if (!tryConnect(gatewayUrl_)) {
             logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl_);
@@ -63,12 +67,15 @@ final class Gateway
         try {
             runTask(&this.handleEvents);
 
-            identify();
+            if (sessionId_ && lastSeqNum_)
+                resume();
+            else
+                identify();
         } catch (Exception e) {
             throw e;
         }
 
-        if (blocking) runEventLoop();
+        if (blocking && !reconnecting) runEventLoop();
     }
 
     void subscribe(in EventType event, DispatchDelegate handler)
@@ -97,6 +104,14 @@ final class Gateway
                 "$browser": Json("droid"),
                 "$device": Json("droid")
             ])
+        ]));
+    }
+
+    private void resume() {
+        opcodeResumeHandle(Json([
+          "token": Json(api_.token),
+          "session_id": Json(sessionId_),
+          "seq": Json(lastSeqNum_)
         ]));
     }
 
@@ -131,7 +146,44 @@ final class Gateway
         }
 
         logger_.infof("Lost connection, close code %d (reason %s)", ws_.closeCode, ws_.closeReason);
-        exitEventLoop(true);
+
+        // User-initiated shutdown.
+        if (shuttingDown) {
+            exitEventLoop(true);
+            return;
+        }
+
+        reconnectionAttempts++;
+
+        if (reconnectionAttempts > MAX_RECONNECTS) {
+            logger_.errorf("Failed to reconnect too many times, quitting...");
+            exitEventLoop(true);
+            return;
+        }
+
+        // They keep trying, it's not working out.
+        if (reconnectionAttempts > 1) {
+            sessionId_ = null;
+            lastSeqNum_ = 0;
+            logger_.errorf("Reconnecting in 5 seconds..");
+
+            sleep(5.seconds);
+
+            connect(true, true);
+            return;
+        }
+
+        // Dont resume for any error codes within those ranges
+        if (ws_.closeCode >= 4000 && ws_.closeCode <= 4010)
+            sessionId_ = null;
+
+        uint timeToWait = reconnectionAttempts * 3;
+        logger_.infof("Attempting to %s after %s seconds", sessionId_ ? "resume" : "reconnect", timeToWait);
+
+        sleep(timeToWait.seconds);
+
+        // Reconnect
+        connect(true, true);
     }
 
     private Packet parseMessage(in string data)
@@ -161,14 +213,15 @@ final class Gateway
         aaBuf[Opcode.DISPATCH]      = toDelegate(&this.opcodeDispatchHandle);
         aaBuf[Opcode.HELLO]         = toDelegate(&this.opcodeHelloHandle);
         aaBuf[Opcode.HEARTBEAT_ACK] = toDelegate(&this.opcodeHeartbeatACKHandle);
+        aaBuf[Opcode.INVALID_SESSION] = toDelegate(&this.opcodeInvalidSessionHandle);
 
         aaBuf.rehash;
         return assumeUnique(aaBuf);
     }
 
     void send(Opcode opcode, Json data) {
-      logger_.tracef("Sending op %s with the data of %s", cast(uint) opcode, data);
-      ws_.send(Json(["op": Json(cast(uint) opcode), "d": data]).toString());
+        logger_.tracef("Sending op %s with the data of %s", cast(uint) opcode, data);
+        ws_.send(Json(["op": Json(cast(uint) opcode), "d": data]).toString());
     }
 
     /* Opcode handlers below */
@@ -182,6 +235,9 @@ final class Gateway
         // We're only really interested in the READY callback here.
         if (packet.type == EventType.READY) {
             sessionId_ = packet.data["session_id"].get!string;
+            reconnectionAttempts = 0;
+        } else if (packet.type == EventType.RESUMED) {
+            opcodeResumedHandle(packet);
         }
 
         publish(packet);
@@ -212,11 +268,26 @@ final class Gateway
         heartbeatNeedsACK_ = false;
     }
 
+    private void opcodeInvalidSessionHandle(in ref Packet /* ignored */) {
+        logger_.tracef("Invalid Session - Reconnecting....");
+        ws_.close();
+    }
+
+    private void opcodeResumedHandle(in ref Packet /* ignored */) {
+        logger_.tracef("Resumed, all lost events should have been replayed.");
+    }
+
     private void opcodeIdentifyHandle(in Json json)
     {
         logger_.tracef("Sending IDENTIFY");
 
         ws_.send(Json(["op": Json(cast(uint) Opcode.IDENTIFY), "d": json]).toString());
+    }
+
+    private void opcodeResumeHandle(in Json json) {
+        logger_.tracef("Sending RESUME");
+
+        ws_.send(Json(["op": Json(cast(uint) Opcode.RESUME), "d": json]).toString());
     }
 
     /* End opcode handlers */
