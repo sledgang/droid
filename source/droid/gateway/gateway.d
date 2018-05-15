@@ -5,6 +5,7 @@ import core.time,
        std.conv,
        std.stdio,
        std.typecons,
+       std.random,
        std.experimental.logger;
 
 import vibe.core.core,
@@ -42,7 +43,6 @@ final class Gateway
     private string sessionId_;
 
     private ubyte reconnectionAttempts;
-    private ubyte MAX_RECONNECTS = 5;
 
     private alias DispatchDelegate = void delegate(in ref Json);
 
@@ -155,29 +155,15 @@ final class Gateway
 
         reconnectionAttempts++;
 
-        if (reconnectionAttempts > MAX_RECONNECTS) {
-            logger_.errorf("Failed to reconnect too many times, quitting...");
-            exitEventLoop(true);
-            return;
-        }
-
-        // They keep trying, it's not working out.
-        if (reconnectionAttempts > 1) {
-            sessionId_ = null;
-            lastSeqNum_ = 0;
-            logger_.errorf("Reconnecting in 5 seconds..");
-
-            sleep(5.seconds);
-
-            connect(true, true);
-            return;
-        }
-
         // Dont resume for any error codes within those ranges
         if (ws_.closeCode >= 4000 && ws_.closeCode <= 4010)
             sessionId_ = null;
 
-        uint timeToWait = reconnectionAttempts * 3;
+        uint timeToWait = reconnectionAttempts * 4;
+
+        if (timeToWait >= 100)
+            timeToWait = 100 + uniform(3, 14);
+
         logger_.infof("Attempting to %s after %s seconds", sessionId_ ? "resume" : "reconnect", timeToWait);
 
         sleep(timeToWait.seconds);
@@ -270,6 +256,11 @@ final class Gateway
 
     private void opcodeInvalidSessionHandle(in ref Packet /* ignored */) {
         logger_.tracef("Invalid Session - Reconnecting....");
+
+        // Reset the connection so they don't try and resume again.
+        if (sessionId_)
+            sessionId_ = null;
+
         ws_.close();
     }
 
