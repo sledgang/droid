@@ -148,10 +148,6 @@ final class Gateway
         return true;
     }
 
-    public void kys() {
-        ws_.close();
-    }
-
     private void handleEvents()
     {
         assert(ws_ && ws_.connected);
@@ -159,9 +155,9 @@ final class Gateway
         while (ws_.waitForData()) {
             auto data = "";
 
-            if (decompressor) {
+            if (decompressor)
                 data = decompressor.read(ws_.receiveBinary());
-            } else
+            else
                 data = ws_.receiveText();
 
             const packet = parseMessage(data);
