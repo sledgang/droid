@@ -23,7 +23,9 @@ import droid.exception,
 
 final class Gateway
 {
-    enum GATEWAY_URL = "wss://gateway.discord.gg/?v=6&encoding=json";
+    // gateway url needs to be https to satisfy vibe's upgrade checks
+    // Please do tell if this workaround isn't right!
+    enum GATEWAY_URL = "https://gateway.discord.gg/?v=6&encoding=json";
 
     private alias OpcodeDelegate = void delegate(in ref Packet);
     private alias OpcodeHandlerMap = OpcodeDelegate[Opcode];
@@ -153,11 +155,10 @@ final class Gateway
             return;
         }
 
-        reconnectionAttempts++;
+        if (heartbeatTimer_)
+            heartbeatTimer_.stop();
 
-        // Dont resume for any error codes within those ranges
-        if (ws_.closeCode >= 4000 && ws_.closeCode <= 4010)
-            sessionId_ = null;
+        reconnectionAttempts++;
 
         uint timeToWait = reconnectionAttempts * 4;
 
@@ -214,13 +215,16 @@ final class Gateway
     private void opcodeDispatchHandle(in ref Packet packet)
     {
         // Just set the seq number for now
-        lastSeqNum_ = packet.seq;
+        if (packet.seq && packet.seq > lastSeqNum_)
+            lastSeqNum_ = packet.seq;
 
         logger_.tracef("Got %s event in dispatch", packet.type);
 
         // We're only really interested in the READY callback here.
         if (packet.type == EventType.READY) {
             sessionId_ = packet.data["session_id"].get!string;
+            logger_.tracef("Got session ID: %s", sessionId_);
+
             reconnectionAttempts = 0;
         } else if (packet.type == EventType.RESUMED) {
             opcodeResumedHandle(packet);
@@ -278,7 +282,7 @@ final class Gateway
     private void opcodeResumeHandle(in Json json) {
         logger_.tracef("Sending RESUME");
 
-        ws_.send(Json(["op": Json(cast(uint) Opcode.RESUME), "d": json]).toString());
+        send(Opcode.RESUME, json);
     }
 
     /* End opcode handlers */

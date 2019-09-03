@@ -4,11 +4,11 @@
 		"unleashy"
 	],
 	"dependencies": {
-		"vibe-d:http": "~>0.8.1-alpha.4"
+		"vibe-d:http": "~>0.8.5"
 	},
 	"description": "Discord library",
 	"copyright": "Copyright © 2017, unleashy",
-    "license": "MIT",
+  "license": "MIT",
 
-    "targetPath": "out"
+  "targetPath": "out"
 }

@@ -55,7 +55,7 @@ class API
     User getUser(Snowflake id)
     {
         return deserializeDataObject!User(
-            fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/users/" ~ id.toString)
+            fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/users/" ~ id.to!string)
         );
     }
 
@@ -63,7 +63,7 @@ class API
       return fetch(
         mixin(DEFAULT_RL_KEY),
         HTTPMethod.POST,
-        "/channels/" ~ channelId.toString ~ "/messages",
+        "/channels/" ~ channelId.to!string ~ "/messages",
         Nullable!Json(Json([
           "content": Json(content)
         ]))
