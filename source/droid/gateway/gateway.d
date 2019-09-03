@@ -6,7 +6,9 @@ import core.time,
        std.stdio,
        std.typecons,
        std.random,
-       std.experimental.logger;
+       std.experimental.logger,
+       std.array,
+       std.zlib;
 
 import vibe.core.core,
        vibe.http.common,
@@ -19,7 +21,8 @@ import droid.exception,
        droid.api,
        droid.gateway.opcode,
        droid.gateway.packet,
-       droid.data.event_type;
+       droid.data.event_type,
+       droid.gateway.compression;
 
 final class Gateway
 {
@@ -32,7 +35,9 @@ final class Gateway
 
     private immutable OpcodeHandlerMap OPCODE_MAPPING;
 
-    private immutable string gatewayUrl_;
+    private string gatewayUrl_;
+    private immutable CompressionType compressionType = CompressionType.ZLIB_STREAM;
+    private Decompressor decompressor = null;
 
     private API api_;
     private WebSocket ws_;
@@ -61,6 +66,18 @@ final class Gateway
 
     void connect(in bool blocking = true, in bool reconnecting = false)
     {
+        if (compressionType != CompressionType.NONE) {
+            gatewayUrl_ = gatewayUrl_ ~ "&compress=" ~ compressionType;
+            switch (compressionType) {
+                case CompressionType.ZLIB_STREAM:
+                    decompressor = new ZLibStream();
+                    break;
+                default:
+                    throw new DroidException("Compression type not supported!");
+
+            }
+        }
+
         if (!tryConnect(gatewayUrl_)) {
             logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl_);
             tryConnect(api_.getGatewayUrl(), true);
@@ -131,12 +148,23 @@ final class Gateway
         return true;
     }
 
+    public void kys() {
+        ws_.close();
+    }
+
     private void handleEvents()
     {
         assert(ws_ && ws_.connected);
 
         while (ws_.waitForData()) {
-            const packet = parseMessage(ws_.receiveText());
+            auto data = "";
+
+            if (decompressor) {
+                data = decompressor.read(ws_.receiveBinary());
+            } else
+                data = ws_.receiveText();
+
+            const packet = parseMessage(data);
 
             auto opcodeHandler = packet.opcode in OPCODE_MAPPING;
             if (opcodeHandler) {
