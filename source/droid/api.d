@@ -18,7 +18,7 @@ import droid.droidversion,
 class API
 {
     enum DEFAULT_BASE_URL   = "https://discordapp.com/api/v7";
-    enum DEFAULT_USER_AGENT = "DiscordBot (https://github.com/y32/droid, " ~ VERSION ~ ")";
+    enum DEFAULT_USER_AGENT = "DiscordBot (https://github.com/sledgang/droid, " ~ VERSION ~ ")";
 
     alias RateLimitTuple = Tuple!(string, "route", string, "major");
     enum DEFAULT_RL_KEY = `tuple!("route", "major")(__FUNCTION__, "")`;
