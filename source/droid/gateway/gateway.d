@@ -1,3 +1,7 @@
+/**
+ * Copyright: © 2019, sledgang
+ * Author: sledgang
+ */
 module droid.gateway.gateway;
 
 import core.time,
@@ -21,6 +25,10 @@ import droid.exception,
        droid.gateway.packet,
        droid.data.event_type;
 
+/**
+ * A class to interact with the Discord gateway
+ * This class is used internally within [Client]
+ */
 final class Gateway
 {
     // gateway url needs to be https to satisfy vibe's upgrade checks
@@ -59,6 +67,7 @@ final class Gateway
         logger_ = logger ? logger : defaultLogger;
     }
 
+    /// Attempt a connection to the gateway
     void connect(in bool blocking = true, in bool reconnecting = false)
     {
         if (!tryConnect(gatewayUrl_)) {
@@ -80,11 +89,13 @@ final class Gateway
         if (blocking && !reconnecting) runEventLoop();
     }
 
+    /// Subscribe to a given event from your own handler
     void subscribe(in EventType event, DispatchDelegate handler)
     {
         dispatchHandlers_[event] ~= handler;
     }
 
+    /// Sends an Identify packet to Discord
     private void identify()
     {
         import std.system : os;
@@ -109,6 +120,7 @@ final class Gateway
         ]));
     }
 
+    /// Resumes a lost connection with Discord
     private void resume() {
         opcodeResumeHandle(Json([
           "token": Json(api_.token),
@@ -178,6 +190,7 @@ final class Gateway
         return deserializeJson!Packet(parseJsonString(data));
     }
 
+    /// Sends a heartbeat packet to Discord
     private void heartbeat()
     {
         if (heartbeatNeedsACK_) {

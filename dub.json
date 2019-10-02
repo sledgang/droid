@@ -9,6 +9,8 @@
 	"description": "Discord library",
 	"copyright": "Copyright © 2017, unleashy",
   "license": "MIT",
+  "-ddoxTool": "scod",
+	"DDOCFLAGS": ["-preview=markdown"],
 
   "targetPath": "out"
 }

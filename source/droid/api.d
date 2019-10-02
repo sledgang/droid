@@ -1,3 +1,9 @@
+/**
+ * Implements various api features for Discord
+ *
+ * Copyright: © 2019, sledgang
+ * Author: sledgang
+ */
 module droid.api;
 
 import std.conv,
@@ -15,6 +21,7 @@ import vibe.http.client,
 import droid.droidversion,
        droid.data;
 
+///
 class API
 {
     enum DEFAULT_BASE_URL   = "https://discordapp.com/api/v7";
@@ -47,11 +54,13 @@ class API
         logger_               = logger ? logger : defaultLogger;
     }
 
+		/// Gets the gateway url from the API
     string getGatewayUrl()
     {
         return fetch(mixin(DEFAULT_RL_KEY), HTTPMethod.GET, "/gateway")["url"].get!string;
     }
 
+		/// Gets a `droid.data.user.User` by their `droid.data.snowflake.Snowflake`
     User getUser(Snowflake id)
     {
         return deserializeDataObject!User(
@@ -59,6 +68,8 @@ class API
         );
     }
 
+
+		/// Sends a message to the specified channel
     Json sendMessage(Snowflake channelId, string content) {
       return fetch(
         mixin(DEFAULT_RL_KEY),
