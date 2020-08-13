@@ -10,9 +10,16 @@ enum CompressionType : string {
     ZLIB        = "zlib",
     ZLIB_STREAM = "zlib-stream"
 }
+
 class Decompressor {
     string read(ubyte[] data) {
         throw new DroidException("Compression type not supported!");
+    }
+}
+
+class ZLib : Decompressor {
+    override string read(ubyte[] data) {
+        return to!string(new UnCompress(HeaderFormat.deflate).uncompress(data));
     }
 }
 

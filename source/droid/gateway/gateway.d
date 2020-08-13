@@ -67,10 +67,13 @@ final class Gateway
     void connect(in bool blocking = true, in bool reconnecting = false)
     {
         if (compressionType != CompressionType.NONE) {
-            gatewayUrl_ = gatewayUrl_ ~ "&compress=" ~ compressionType;
             switch (compressionType) {
                 case CompressionType.ZLIB_STREAM:
+                    gatewayUrl_ = gatewayUrl_ ~ "&compress=" ~ compressionType;
                     decompressor = new ZLibStream();
+                    break;
+                case CompressionType.ZLIB:
+                    decompressor = new ZLib();
                     break;
                 default:
                     throw new DroidException("Compression type not supported!");
@@ -118,6 +121,7 @@ final class Gateway
 
         opcodeIdentifyHandle(Json([
             "token": Json(api_.token),
+            "compress": Json(compressionType == CompressionType.ZLIB),
             "properties": Json([
                 "$os": Json(osName),
                 "$browser": Json("droid"),
@@ -155,9 +159,15 @@ final class Gateway
         while (ws_.waitForData()) {
             auto data = "";
 
-            if (decompressor)
-                data = decompressor.read(ws_.receiveBinary());
-            else
+            if (decompressor) {
+                // TODO: This may be meh.
+                try {
+                    data = decompressor.read(ws_.receiveBinary());
+                } catch (WebSocketException e) {
+                    // The data isn't compressed or something went wrong, Yeet it to text!
+                    data = ws_.receiveText();
+                }
+            } else
                 data = ws_.receiveText();
 
             // The data isn't complete (not a full zlib message, or something borked)
