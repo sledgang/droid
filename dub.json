@@ -1,13 +1,14 @@
 {
 	"name": "droid",
 	"authors": [
-		"unleashy"
+		"unleashy",
+		"PixeL"
 	],
 	"dependencies": {
-		"vibe-d:http": "~>0.8.5"
+		"vibe-d:http": "~>0.9.0"
 	},
 	"description": "Discord library",
-	"copyright": "Copyright © 2017, unleashy",
+	"copyright": "Copyright © 2017, unleashy, PixeL",
   "license": "MIT",
 
   "targetPath": "out"
