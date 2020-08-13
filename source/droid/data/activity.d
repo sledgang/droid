@@ -14,6 +14,7 @@ class Activity {
     this.type = type;
   }
 
+  /// If the activity is a streaming activity
   bool isStreaming() {
     return this.type == 1 && this.url != "";
   }

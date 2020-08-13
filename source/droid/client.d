@@ -1,3 +1,9 @@
+/**
+ * A client to interact with the API
+ *
+ * Copyright: © 2019, sledgang
+ * Author: sledgang
+ */
 module droid.client;
 
 import std.typecons,
@@ -10,11 +16,24 @@ import droid.gateway,
        droid.cache,
        droid.data;
 
+
+/**
+ * A config to change various settings
+ */
 struct Config
 {
+		/**
+		 * The token to use for API requests and the gateway connection.
+		 * Note: If using a bot user, the token must be prefaced with "Bot " to make API requests!
+		 */
     string token;
+
     API api = null;
+
+		/// The gateway class to use when connecting to Discord
     Gateway gateway = null;
+
+		/// The cache to use for storing data
     Cache cache = null;
 
     static Config mergeWithDefaults(Config other)
@@ -31,22 +50,27 @@ struct Config
     }
 }
 
+/// A basic client that is used to interact with the API and connect to the gateway
 class Client
 {
     private API api_;
     private Gateway gateway_;
     private DiscordCache cache_;
 
+		/// Creates a Client instance with a custom configuration
     this(Config config)
     {
         setupFromConfig(Config.mergeWithDefaults(config));
     }
 
+		/// Creates a Client instance with the specified token
     this(in string token)
     {
         this(tokenizedConfig(token));
     }
 
+
+		/// Starts a gateway connection to Discord
     void run(bool blocking = true)
     {
         gateway_.connect(blocking);
@@ -59,6 +83,7 @@ class Client
         runEventLoop();
     }
 
+		/// Changes your status on Discord
     void changePresence(int idleSince, string status, Activity activity) {
       this.gateway_.send(Opcode.STATUS_UPDATE, Json([
             "since": idleSince > 0 ? Json(idleSince) : Json(null),
