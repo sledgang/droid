@@ -6,7 +6,9 @@ import core.time,
        std.stdio,
        std.typecons,
        std.random,
-       std.experimental.logger;
+       std.experimental.logger,
+       std.array,
+       std.zlib;
 
 import vibe.core.core,
        vibe.http.common,
@@ -19,7 +21,8 @@ import droid.exception,
        droid.api,
        droid.gateway.opcode,
        droid.gateway.packet,
-       droid.data.event_type;
+       droid.data.event_type,
+       droid.gateway.compression;
 
 final class Gateway
 {
@@ -32,7 +35,9 @@ final class Gateway
 
     private immutable OpcodeHandlerMap OPCODE_MAPPING;
 
-    private immutable string gatewayUrl_;
+    private string gatewayUrl_;
+    private immutable CompressionType compressionType = CompressionType.ZLIB_STREAM;
+    private Decompressor decompressor = null;
 
     private API api_;
     private WebSocket ws_;
@@ -61,6 +66,21 @@ final class Gateway
 
     void connect(in bool blocking = true, in bool reconnecting = false)
     {
+        if (compressionType != CompressionType.NONE) {
+            switch (compressionType) {
+                case CompressionType.ZLIB_STREAM:
+                    gatewayUrl_ = gatewayUrl_ ~ "&compress=" ~ compressionType;
+                    decompressor = new ZLibStream();
+                    break;
+                case CompressionType.ZLIB:
+                    decompressor = new ZLib();
+                    break;
+                default:
+                    throw new DroidException("Compression type not supported!");
+
+            }
+        }
+
         if (!tryConnect(gatewayUrl_)) {
             logger_.tracef("Could not connect to given gateway url %s, using API", gatewayUrl_);
             tryConnect(api_.getGatewayUrl(), true);
@@ -101,6 +121,7 @@ final class Gateway
 
         opcodeIdentifyHandle(Json([
             "token": Json(api_.token),
+            "compress": Json(compressionType == CompressionType.ZLIB),
             "properties": Json([
                 "$os": Json(osName),
                 "$browser": Json("droid"),
@@ -136,7 +157,23 @@ final class Gateway
         assert(ws_ && ws_.connected);
 
         while (ws_.waitForData()) {
-            const packet = parseMessage(ws_.receiveText());
+            auto data = "";
+
+            if (decompressor) {
+                // TODO: This may be meh.
+                try {
+                    data = decompressor.read(ws_.receiveBinary());
+                } catch (WebSocketException e) {
+                    // The data isn't compressed or something went wrong, Yeet it to text!
+                    data = ws_.receiveText();
+                }
+            } else
+                data = ws_.receiveText();
+
+            // The data isn't complete (not a full zlib message, or something borked)
+            if (data == "") return;
+
+            const packet = parseMessage(data);
 
             auto opcodeHandler = packet.opcode in OPCODE_MAPPING;
             if (opcodeHandler) {
