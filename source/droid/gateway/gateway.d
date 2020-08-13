@@ -160,6 +160,9 @@ final class Gateway
             else
                 data = ws_.receiveText();
 
+            // The data isn't complete (not a full zlib message, or something borked)
+            if (data == "") return;
+
             const packet = parseMessage(data);
 
             auto opcodeHandler = packet.opcode in OPCODE_MAPPING;
